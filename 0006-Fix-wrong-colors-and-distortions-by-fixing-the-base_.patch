@@ -1,0 +1,45 @@
+From 534f456143a4973f1b9f540d9f6d053241e5a527 Mon Sep 17 00:00:00 2001
+From: anonymous
+Date: Fri, 14 Apr 2023 15:53:19 +0200
+Subject: [PATCH] Fix wrong colors and distortions by fixing the base_q_idx
+
+---
+ vp9/encoder/vp9_ratectrl.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/vp9/encoder/vp9_ratectrl.c b/vp9/encoder/vp9_ratectrl.c
+index e38464c72..4fe3b1f9d 100644
+--- a/vp9/encoder/vp9_ratectrl.c
++++ b/vp9/encoder/vp9_ratectrl.c
+@@ -1379,6 +1379,9 @@ static void pick_kf_q_bound_two_pass(const VP9_COMP *cpi, int *bottom_index,
+ 
+ static int rc_constant_q(const VP9_COMP *cpi, int *bottom_index, int *top_index,
+                          int gf_group_index) {
++  //TILEMOD: we need to fix base_q_idx!!
++  return 46;
++  
+   const VP9_COMMON *const cm = &cpi->common;
+   const RATE_CONTROL *const rc = &cpi->rc;
+   const VP9EncoderConfig *const oxcf = &cpi->oxcf;
+@@ -1420,6 +1423,9 @@ static int rc_constant_q(const VP9_COMP *cpi, int *bottom_index, int *top_index,
+ 
+ static int rc_pick_q_and_bounds_two_pass(const VP9_COMP *cpi, int *bottom_index,
+                                          int *top_index, int gf_group_index) {
++  //TILEMOD: we need to fix base_q_idx!!
++  return 46;
++
+   const VP9_COMMON *const cm = &cpi->common;
+   const RATE_CONTROL *const rc = &cpi->rc;
+   const VP9EncoderConfig *const oxcf = &cpi->oxcf;
+@@ -1580,6 +1586,8 @@ static int rc_pick_q_and_bounds_two_pass(const VP9_COMP *cpi, int *bottom_index,
+ 
+ int vp9_rc_pick_q_and_bounds(const VP9_COMP *cpi, int *bottom_index,
+                              int *top_index) {
++  //TILEMOD: we need to fix base_q_idx!!
++  return 46;
+   int q;
+   const int gf_group_index = cpi->twopass.gf_group.index;
+   if (cpi->oxcf.pass == 0) {
+-- 
+2.35.1.windows.2
+

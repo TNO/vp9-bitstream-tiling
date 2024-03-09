@@ -1,0 +1,121 @@
+From baf2d383091663e405baf5de26c0bb6a462ca4e1 Mon Sep 17 00:00:00 2001
+From: anonymous
+Date: Wed, 5 Apr 2023 12:07:26 +0200
+Subject: [PATCH] add text search string to all changes and fix tx mode to
+ ONLY_4X4
+
+---
+ vp9/encoder/vp9_bitstream.c   | 16 +++++++++++++---
+ vp9/encoder/vp9_encodeframe.c |  1 +
+ vp9/encoder/vp9_encodemv.c    |  2 +-
+ 3 files changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/vp9/encoder/vp9_bitstream.c b/vp9/encoder/vp9_bitstream.c
+index d587fcfb2..db34cfa08 100644
+--- a/vp9/encoder/vp9_bitstream.c
++++ b/vp9/encoder/vp9_bitstream.c
+@@ -485,6 +485,8 @@ static void write_modes_sb(
+     update_partition_context(xd, mi_row, mi_col, subsize, bsize);
+ }
+ 
++// TODO FIX partiion_probs !? Simon
++
+ static void write_modes(
+     VP9_COMP *cpi, MACROBLOCKD *const xd, const TileInfo *const tile,
+     vpx_writer *w, int tile_row, int tile_col,
+@@ -585,7 +587,7 @@ static void update_coef_probs_common(vpx_writer *const bc, VP9_COMP *cpi,
+       }
+ 
+       // printf("Update %d %d, savings %d\n", update[0], update[1], savings);
+-      // NOTE: we disable updates
++      // NOTE: we disable updates TILEMOD
+       savings = -1;
+       /* Is coef updated at all */
+       if (update[1] == 0 || savings < 0) {
+@@ -630,7 +632,7 @@ static void update_coef_probs_common(vpx_writer *const bc, VP9_COMP *cpi,
+       int updates = 0;
+       int noupdates_before_first = 0;
+       assert(cpi->sf.use_fast_coef_updates == ONE_LOOP_REDUCED);
+-      // NOTE: we disable updates
++      // NOTE: we disable updates TILEMOD
+       /* for (i = 0; i < PLANE_TYPES; ++i) {
+         for (j = 0; j < REF_TYPES; ++j) {
+           for (k = 0; k < COEF_BANDS; ++k) {
+@@ -1259,6 +1261,7 @@ static void write_uncompressed_header(VP9_COMP *cpi,
+ 
+       vpx_wb_write_bit(wb, cm->allow_high_precision_mv);
+ 
++      // TILEMOD - do not fix! - interp_filter
+       fix_interp_filter(cm, cpi->td.counts);
+       write_interp_filter(cm->interp_filter, wb);
+     }
+@@ -1287,10 +1290,13 @@ static size_t write_compressed_header(VP9_COMP *cpi, uint8_t *data) {
+ 
+   vpx_start_encode(&header_bc, data);
+ 
++  // NOTE FIX to cm->tx_mode = ONLY_4X4; TILEMOD
++  cm->tx_mode = ONLY_4X4;
+   if (xd->lossless)
+     cm->tx_mode = ONLY_4X4;
+   else
+     encode_txfm_probs(cm, &header_bc, counts);
++  
+ 
+   update_coef_probs(cpi, &header_bc);
+   update_skip_probs(cm, &header_bc, counts);
+@@ -1309,6 +1315,7 @@ static size_t write_compressed_header(VP9_COMP *cpi, uint8_t *data) {
+       vp9_cond_prob_diff_update(&header_bc, &fc->intra_inter_prob[i],
+                                 counts->intra_inter[i]);
+ 
++    //TILEMOD
+     if (cpi->allow_comp_inter_inter) {
+       const int use_compound_pred = cm->reference_mode != SINGLE_REFERENCE;
+       const int use_hybrid_pred = cm->reference_mode == REFERENCE_MODE_SELECT;
+@@ -1323,6 +1330,7 @@ static size_t write_compressed_header(VP9_COMP *cpi, uint8_t *data) {
+       }
+     }
+ 
++    /* TILEMOD @%^&*!!!! */ 
+     if (cm->reference_mode != COMPOUND_REFERENCE) {
+       for (i = 0; i < REF_CONTEXTS; i++) {
+         vp9_cond_prob_diff_update(&header_bc, &fc->single_ref_prob[i][0],
+@@ -1345,8 +1353,10 @@ static size_t write_compressed_header(VP9_COMP *cpi, uint8_t *data) {
+       prob_diff_update(vp9_partition_tree, fc->partition_prob[i],
+                        counts->partition[i], PARTITION_TYPES, &header_bc);
+ 
++    // DO not use MV !? TILEMOD - does this even make sense? Simon
++
+     vp9_write_nmv_probs(cm, cm->allow_high_precision_mv, &header_bc,
+-                        &counts->mv);
++                         &counts->mv);
+   }
+ 
+   vpx_stop_encode(&header_bc);
+diff --git a/vp9/encoder/vp9_encodeframe.c b/vp9/encoder/vp9_encodeframe.c
+index 131c4887f..3bc948ab5 100644
+--- a/vp9/encoder/vp9_encodeframe.c
++++ b/vp9/encoder/vp9_encodeframe.c
+@@ -4592,6 +4592,7 @@ static MV_REFERENCE_FRAME get_frame_type(const VP9_COMP *cpi) {
+ }
+ 
+ static TX_MODE select_tx_mode(const VP9_COMP *cpi, MACROBLOCKD *const xd) {
++  return ONLY_4X4; //TILEMOD! fix to 4x4 for now
+   if (xd->lossless) return ONLY_4X4;
+   if (cpi->common.frame_type == KEY_FRAME && cpi->sf.use_nonrd_pick_mode)
+     return ALLOW_16X16;
+diff --git a/vp9/encoder/vp9_encodemv.c b/vp9/encoder/vp9_encodemv.c
+index 093f3a67f..5e42f1f26 100644
+--- a/vp9/encoder/vp9_encodemv.c
++++ b/vp9/encoder/vp9_encodemv.c
+@@ -146,7 +146,7 @@ static int update_mv(vpx_writer *w, const unsigned int ct[2], vpx_prob *cur_p,
+   /*const int update = cost_branch256(ct, *cur_p) + vp9_cost_zero(upd_p) >
+                      cost_branch256(ct, new_p) + vp9_cost_one(upd_p) +
+                          (7 << VP9_PROB_COST_SHIFT); */
+-  // NOTE: We disable updates
++  // NOTE: We disable updates TILEMOD
+   const int update = 0;
+   vpx_write(w, update, upd_p);
+   if (update) {
+-- 
+2.35.1.windows.2
+

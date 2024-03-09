@@ -1,0 +1,139 @@
+From 2ec8755645d7dd02df2019795c73e3aec772ee1b Mon Sep 17 00:00:00 2001
+From: anonymous
+Date: Wed, 5 Apr 2023 12:40:46 +0200
+Subject: [PATCH] potential fix for different frame compressiosn -> set all
+ interp_filter = BILINEAR
+
+---
+ vp9/decoder/vp9_decodemv.c    |  2 +-
+ vp9/encoder/vp9_bitstream.c   |  2 +-
+ vp9/encoder/vp9_encodeframe.c |  2 +-
+ vp9/encoder/vp9_pickmode.c    | 12 ++++++------
+ vp9/encoder/vp9_rdopt.c       | 10 +++++-----
+ 5 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/vp9/decoder/vp9_decodemv.c b/vp9/decoder/vp9_decodemv.c
+index 8a8d2ad86..24ea08ec4 100644
+--- a/vp9/decoder/vp9_decodemv.c
++++ b/vp9/decoder/vp9_decodemv.c
+@@ -380,7 +380,7 @@ static void read_intra_block_mode_info(VP9_COMMON *const cm,
+ 
+   // Initialize interp_filter here so we do not have to check for inter block
+   // modes in get_pred_context_switchable_interp()
+-  mi->interp_filter = SWITCHABLE_FILTERS;
++  mi->interp_filter = BILINEAR; // TILEMOD, old: SWITCHABLE_FILTERS;
+ 
+   mi->ref_frame[0] = INTRA_FRAME;
+   mi->ref_frame[1] = NONE;
+diff --git a/vp9/encoder/vp9_bitstream.c b/vp9/encoder/vp9_bitstream.c
+index db34cfa08..c9ccefaff 100644
+--- a/vp9/encoder/vp9_bitstream.c
++++ b/vp9/encoder/vp9_bitstream.c
+@@ -1013,7 +1013,7 @@ static size_t encode_tiles_mt(VP9_COMP *cpi, uint8_t *data_ptr) {
+       data->tile_idx = tile_col;
+       data->max_mv_magnitude = cpi->max_mv_magnitude;
+       memset(data->interp_filter_selected, 0,
+-             sizeof(data->interp_filter_selected[0][0]) * SWITCHABLE);
++             sizeof(data->interp_filter_selected[0][0]) * BILINEAR); //TILEBOD, old: SWITCHABLE);
+ 
+       // First thread can directly write into the output buffer.
+       if (i == 0) {
+diff --git a/vp9/encoder/vp9_encodeframe.c b/vp9/encoder/vp9_encodeframe.c
+index 3bc948ab5..7d3ce911d 100644
+--- a/vp9/encoder/vp9_encodeframe.c
++++ b/vp9/encoder/vp9_encodeframe.c
+@@ -4468,7 +4468,7 @@ static void encode_rd_sb_row(VP9_COMP *cpi, ThreadData *td,
+     (*(cpi->row_mt_sync_read_ptr))(&tile_data->row_mt_sync, sb_row,
+                                    sb_col_in_tile);
+ 
+-    if (sf->adaptive_pred_interp_filter) {
++    if (0){ // TILEMOD sf->adaptive_pred_interp_filter) {
+       for (i = 0; i < 64; ++i) td->leaf_tree[i].pred_interp_filter = SWITCHABLE;
+ 
+       for (i = 0; i < 64; ++i) {
+diff --git a/vp9/encoder/vp9_pickmode.c b/vp9/encoder/vp9_pickmode.c
+index 695fd484f..af0fce502 100644
+--- a/vp9/encoder/vp9_pickmode.c
++++ b/vp9/encoder/vp9_pickmode.c
+@@ -1168,7 +1168,7 @@ void vp9_pick_intra_mode(VP9_COMP *cpi, MACROBLOCK *x, RD_COST *rd_cost,
+   mi->ref_frame[0] = INTRA_FRAME;
+   // Initialize interp_filter here so we do not have to check for inter block
+   // modes in get_pred_context_switchable_interp()
+-  mi->interp_filter = SWITCHABLE_FILTERS;
++  mi->interp_filter = BILINEAR; // TILEMOD, old: SWITCHABLE_FILTERS;
+ 
+   mi->mv[0].as_int = INVALID_MV;
+   mi->uv_mode = DC_PRED;
+@@ -1409,7 +1409,7 @@ static void recheck_zeromv_after_denoising(
+       mi->interp_filter = ctx_den->best_pred_filter;
+       if (ctx_den->best_ref_frame == INTRA_FRAME) {
+         mi->mv[0].as_int = INVALID_MV;
+-        mi->interp_filter = SWITCHABLE_FILTERS;
++        mi->interp_filter = BILINEAR; // TILEMOD, old: SWITCHABLE_FILTERS;
+       } else if (ctx_den->best_ref_frame == GOLDEN_FRAME) {
+         mi->mv[0].as_int =
+             ctx_den->frame_mv[ctx_den->best_mode][ctx_den->best_ref_frame]
+@@ -1495,13 +1495,13 @@ static void search_filter_ref(VP9_COMP *cpi, MACROBLOCK *x, RD_COST *this_rdc,
+   unsigned int pf_sse[3] = { 0 };
+   TX_SIZE pf_tx_size[3] = { 0 };
+   int64_t best_cost = INT64_MAX;
+-  INTERP_FILTER best_filter = SWITCHABLE, filter;
++  INTERP_FILTER best_filter = BILINEAR, filter; // TILEMOD, old: SWITCHABLE, filter;
+   PRED_BUFFER *current_pred = *this_mode_pred;
+   uint8_t skip_txfm = SKIP_TXFM_NONE;
+   int best_early_term = 0;
+   int best_flag_preduv_computed[2] = { 0 };
+-  INTERP_FILTER filter_start = force_smooth_filter ? EIGHTTAP_SMOOTH : EIGHTTAP;
+-  INTERP_FILTER filter_end = EIGHTTAP_SMOOTH;
++  INTERP_FILTER filter_start = BILINEAR; // TILEMOD, old: force_smooth_filter ? EIGHTTAP_SMOOTH : EIGHTTAP;
++  INTERP_FILTER filter_end = BILINEAR; // TILEMOD, old: EIGHTTAP_SMOOTH;
+   for (filter = filter_start; filter <= filter_end; ++filter) {
+     int64_t cost;
+     mi->interp_filter = filter;
+@@ -2644,7 +2644,7 @@ void vp9_pick_inter_mode(VP9_COMP *cpi, MACROBLOCK *x, TileDataEnc *tile_data,
+   x->skip_txfm[0] = best_pickmode.best_mode_skip_txfm;
+ 
+   if (!is_inter_block(mi)) {
+-    mi->interp_filter = SWITCHABLE_FILTERS;
++    mi->interp_filter = BILINEAR; // TILEMOD, old:  SWITCHABLE_FILTERS;
+   }
+ 
+   if (reuse_inter_pred && best_pickmode.best_pred != NULL) {
+diff --git a/vp9/encoder/vp9_rdopt.c b/vp9/encoder/vp9_rdopt.c
+index a1687dcf4..a5b282157 100644
+--- a/vp9/encoder/vp9_rdopt.c
++++ b/vp9/encoder/vp9_rdopt.c
+@@ -4043,7 +4043,7 @@ void vp9_rd_pick_inter_mode_sb_seg_skip(VP9_COMP *cpi, TileDataEnc *tile_data,
+   int64_t best_filter_diff[SWITCHABLE_FILTER_CONTEXTS];
+   unsigned int ref_costs_single[MAX_REF_FRAMES], ref_costs_comp[MAX_REF_FRAMES];
+   vpx_prob comp_mode_p;
+-  INTERP_FILTER best_filter = SWITCHABLE;
++  INTERP_FILTER best_filter = BILINEAR; // TILEMOD, old: SWITCHABLE;
+   int64_t this_rd = INT64_MAX;
+   int rate2 = 0;
+   const int64_t distortion2 = 0;
+@@ -4401,9 +4401,9 @@ void vp9_rd_pick_inter_mode_sub8x8(VP9_COMP *cpi, TileDataEnc *tile_data,
+           tmp_best_filter = ctx->pred_interp_filter < SWITCHABLE
+                                 ? ctx->pred_interp_filter
+                                 : 0;
+-        } else {
+-          for (switchable_filter_index = 0;
+-               switchable_filter_index < SWITCHABLE_FILTERS;
++        } else { // TILEMOD !!! 
++          for (switchable_filter_index = BILINEAR;
++               switchable_filter_index <= BILINEAR;
+                ++switchable_filter_index) {
+             int newbest, rs;
+             int64_t rs_rd;
+@@ -4600,7 +4600,7 @@ void vp9_rd_pick_inter_mode_sub8x8(VP9_COMP *cpi, TileDataEnc *tile_data,
+           max_plane = 1;
+           // Initialize interp_filter here so we do not have to check for
+           // inter block modes in get_pred_context_switchable_interp()
+-          mi->interp_filter = SWITCHABLE_FILTERS;
++          mi->interp_filter = BILINEAR; // TILEMOD, old:  SWITCHABLE_FILTERS;
+         }
+ 
+         rd_cost->rate = rate2;
+-- 
+2.35.1.windows.2
+

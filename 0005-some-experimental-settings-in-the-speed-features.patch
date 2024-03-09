@@ -1,0 +1,71 @@
+From a0b65a3ea35a4ad4f0c839e37db827743a161064 Mon Sep 17 00:00:00 2001
+From: anonymous
+Date: Thu, 6 Apr 2023 11:57:20 +0200
+Subject: [PATCH] some experimental settings in the speed features
+
+---
+ vp9/encoder/vp9_speed_features.c | 34 +++++++++++++++++++++++++++++++-
+ 1 file changed, 33 insertions(+), 1 deletion(-)
+
+diff --git a/vp9/encoder/vp9_speed_features.c b/vp9/encoder/vp9_speed_features.c
+index 81695e915..49810ebd2 100644
+--- a/vp9/encoder/vp9_speed_features.c
++++ b/vp9/encoder/vp9_speed_features.c
+@@ -390,6 +390,7 @@ static void set_good_speed_feature_framesize_independent(VP9_COMP *cpi,
+ static void set_rt_speed_feature_framesize_dependent(VP9_COMP *cpi,
+                                                      SPEED_FEATURES *sf,
+                                                      int speed) {
++  // TILEMOD we are here! fprintf(stderr, "IMPORTANT WE DO set_rt_speed_feature_framesize_dependent", "");
+   VP9_COMMON *const cm = &cpi->common;
+ 
+   if (speed >= 1) {
+@@ -423,6 +424,37 @@ static void set_rt_speed_feature_framesize_dependent(VP9_COMP *cpi,
+     sf->encode_breakout_thresh =
+         (VPXMIN(cm->width, cm->height) >= 720) ? 800 : 300;
+   }
++
++  /* TILEMOD lets fix some encoding stuff!!! */
++  /* Seems to  have no effect :()
++  int i;
++  for (i = 0; i < TX_SIZES; i++) {
++    sf->intra_y_mode_mask[i] = INTRA_DC_H_V;
++    sf->intra_uv_mode_mask[i] = INTRA_DC;
++  }
++  sf->comp_inter_joint_search_thresh = 0;
++  sf->coeff_prob_appx_step = 1;
++  sf->skip_encode_sb = 0;
++  sf->disable_golden_ref = 1;
++  sf->default_interp_filter = BILINEAR;
++  cpi->oxcf.aq_mode = 0;
++
++  for (i = 0; i < BLOCK_SIZES; ++i)
++    sf->intra_y_mode_bsize_mask[i] = INTRA_DC;
++  sf->mv.adapt_subpel_force_stop.mv_thresh = 1;
++  sf->mv.adapt_subpel_force_stop.force_stop_below = QUARTER_PEL;
++  sf->mv.adapt_subpel_force_stop.force_stop_above = HALF_PEL;
++  */
++  // this one might be the KEY !!! ???
++  //sf->default_interp_filter = SWITCHABLE;
++  sf->default_interp_filter = BILINEAR; // TILEMOD, old: 
++
++  sf->coeff_prob_appx_step = 1;
++  sf->use_fast_coef_updates = ONE_LOOP_REDUCED;
++  sf->simple_model_rd_from_var = 1;
++  sf->limit_newmv_early_exit = 1;
++  sf->comp_inter_joint_search_thresh = 0;
++  sf->disable_split_mask = DISABLE_ALL_SPLIT;
+ }
+ 
+ static void set_rt_speed_feature_framesize_independent(
+@@ -965,7 +997,7 @@ void vp9_set_speed_features_framesize_independent(VP9_COMP *cpi, int speed) {
+   // Recode loop tolerance %.
+   sf->recode_tolerance_low = 12;
+   sf->recode_tolerance_high = 25;
+-  sf->default_interp_filter = SWITCHABLE;
++  sf->default_interp_filter = BILINEAR; // TILEMOD, old: SWITCHABLE;
+   sf->simple_model_rd_from_var = 0;
+   sf->short_circuit_flat_blocks = 0;
+   sf->short_circuit_low_temp_var = 0;
+-- 
+2.35.1.windows.2
+

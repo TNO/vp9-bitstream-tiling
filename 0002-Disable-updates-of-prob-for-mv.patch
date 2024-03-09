@@ -1,0 +1,30 @@
+From 62af7dbc137824f76c53fd22b9e9c04e7825c83b Mon Sep 17 00:00:00 2001
+From: anonymous
+Date: Tue, 23 Mar 2021 19:30:05 +0100
+Subject: [PATCH] Disable updates of prob for mv
+
+---
+ vp9/encoder/vp9_encodemv.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/vp9/encoder/vp9_encodemv.c b/vp9/encoder/vp9_encodemv.c
+index 023d087c2..093f3a67f 100644
+--- a/vp9/encoder/vp9_encodemv.c
++++ b/vp9/encoder/vp9_encodemv.c
+@@ -143,9 +143,11 @@ static void build_nmv_component_cost_table(int *mvcost,
+ static int update_mv(vpx_writer *w, const unsigned int ct[2], vpx_prob *cur_p,
+                      vpx_prob upd_p) {
+   const vpx_prob new_p = get_binary_prob(ct[0], ct[1]) | 1;
+-  const int update = cost_branch256(ct, *cur_p) + vp9_cost_zero(upd_p) >
++  /*const int update = cost_branch256(ct, *cur_p) + vp9_cost_zero(upd_p) >
+                      cost_branch256(ct, new_p) + vp9_cost_one(upd_p) +
+-                         (7 << VP9_PROB_COST_SHIFT);
++                         (7 << VP9_PROB_COST_SHIFT); */
++  // NOTE: We disable updates
++  const int update = 0;
+   vpx_write(w, update, upd_p);
+   if (update) {
+     *cur_p = new_p;
+-- 
+2.35.1.windows.2
+

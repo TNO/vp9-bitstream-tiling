@@ -1,0 +1,86 @@
+From 4df2282b7c8aafb849ed62ba612434ab98dc03eb Mon Sep 17 00:00:00 2001
+From: anonymous
+Date: Tue, 23 Mar 2021 17:12:00 +0100
+Subject: [PATCH] Disable updates (works for intra only)
+
+---
+ .gitignore                  |  4 ++++
+ vp9/encoder/vp9_bitstream.c | 11 ++++++++---
+ vp9/encoder/vp9_subexp.c    |  5 +++--
+ 3 files changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index 5f2683538..fc8af961b 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -67,3 +67,7 @@
+ /vpxenc
+ /vpxenc.dox
+ TAGS
++
++libvpx-build
++*.yuv
++.vscode/*
+diff --git a/vp9/encoder/vp9_bitstream.c b/vp9/encoder/vp9_bitstream.c
+index 3eff4ce83..d587fcfb2 100644
+--- a/vp9/encoder/vp9_bitstream.c
++++ b/vp9/encoder/vp9_bitstream.c
+@@ -585,6 +585,8 @@ static void update_coef_probs_common(vpx_writer *const bc, VP9_COMP *cpi,
+       }
+ 
+       // printf("Update %d %d, savings %d\n", update[0], update[1], savings);
++      // NOTE: we disable updates
++      savings = -1;
+       /* Is coef updated at all */
+       if (update[1] == 0 || savings < 0) {
+         vpx_write_bit(bc, 0);
+@@ -628,7 +630,8 @@ static void update_coef_probs_common(vpx_writer *const bc, VP9_COMP *cpi,
+       int updates = 0;
+       int noupdates_before_first = 0;
+       assert(cpi->sf.use_fast_coef_updates == ONE_LOOP_REDUCED);
+-      for (i = 0; i < PLANE_TYPES; ++i) {
++      // NOTE: we disable updates
++      /* for (i = 0; i < PLANE_TYPES; ++i) {
+         for (j = 0; j < REF_TYPES; ++j) {
+           for (k = 0; k < COEF_BANDS; ++k) {
+             for (l = 0; l < BAND_COEFF_CONTEXTS(k); ++l) {
+@@ -663,7 +666,7 @@ static void update_coef_probs_common(vpx_writer *const bc, VP9_COMP *cpi,
+                 }
+                 vpx_write(bc, u, upd);
+                 if (u) {
+-                  /* send/use new probability */
++                  // send/use new probability
+                   vp9_write_prob_diff_update(bc, newp, *oldp);
+                   *oldp = newp;
+                 }
+@@ -671,7 +674,9 @@ static void update_coef_probs_common(vpx_writer *const bc, VP9_COMP *cpi,
+             }
+           }
+         }
+-      }
++      }*/
++      // NOTE: we disable updates
++      updates = 0;
+       if (updates == 0) {
+         vpx_write_bit(bc, 0);  // no updates
+       }
+diff --git a/vp9/encoder/vp9_subexp.c b/vp9/encoder/vp9_subexp.c
+index 19bbd5373..fcff2b107 100644
+--- a/vp9/encoder/vp9_subexp.c
++++ b/vp9/encoder/vp9_subexp.c
+@@ -182,9 +182,10 @@ void vp9_cond_prob_diff_update(vpx_writer *w, vpx_prob *oldp,
+                                const unsigned int ct[2]) {
+   const vpx_prob upd = DIFF_UPDATE_PROB;
+   vpx_prob newp = get_binary_prob(ct[0], ct[1]);
+-  const int savings =
+-      vp9_prob_diff_update_savings_search(ct, *oldp, &newp, upd);
++  /* const int savings = */
++  /*     vp9_prob_diff_update_savings_search(ct, *oldp, &newp, upd); */
+   assert(newp >= 1);
++  const int savings = 0;
+   if (savings > 0) {
+     vpx_write(w, 1, upd);
+     vp9_write_prob_diff_update(w, newp, *oldp);
+-- 
+2.35.1.windows.2
+
